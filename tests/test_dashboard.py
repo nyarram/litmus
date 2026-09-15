@@ -1,6 +1,9 @@
 """Tests for the dashboard store, app routes, and tracing flag plumbing."""
 
 import pytest
+
+pytest.importorskip("fastapi")
+
 from fastapi.testclient import TestClient
 
 from litmus.dashboard import create_app, store
