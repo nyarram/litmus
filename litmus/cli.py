@@ -101,13 +101,27 @@ def cmd_run(args: argparse.Namespace) -> int:
     judges = build_judges(args.judges, client, config)
     target = load_callable(args.target, "--target")
 
+    tracing_enabled = args.trace or args.trace_otlp_endpoint is not None
+    if tracing_enabled:
+        from litmus import tracing
+
+        if args.trace_otlp_endpoint:
+            tracing.init_tracing(exporter="otlp", endpoint=args.trace_otlp_endpoint)
+        else:
+            tracing.init_tracing(exporter="console")
+
     report = run_eval(
         cases, target, judges,
         threshold=args.threshold, suite=Path(args.suite).stem,
+        trace=tracing_enabled,
     )
     base = _write_reports(args.report_dir, f"eval_report_{report.suite}", report)
     print(report.to_markdown())
     print(f"reports written to {base}.json / {base}.md")
+    if tracing_enabled:
+        from litmus import tracing
+
+        tracing.shutdown_tracing()
     return 0 if report.passed else 1
 
 
@@ -155,6 +169,10 @@ def build_parser() -> argparse.ArgumentParser:
                           "(prompt_version, rubric, pass_threshold, max_retries)")
     run.add_argument("--threshold", type=float, default=1.0,
                      help="minimum overall mean score to pass (default 1.0)")
+    run.add_argument("--trace", action="store_true",
+                     help="emit OpenTelemetry spans per case (console exporter)")
+    run.add_argument("--trace-otlp-endpoint", default=None,
+                     help="send spans to this OTLP HTTP endpoint instead of stdout")
     run.add_argument("--report-dir", default="reports",
                      help="where to write eval reports (default ./reports)")
 

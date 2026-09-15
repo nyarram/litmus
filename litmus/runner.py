@@ -14,7 +14,7 @@ from typing import Callable, Sequence
 
 from litmus.dataset import GoldenCase
 from litmus.judges import Judge, Score
-
+from litmus import tracing
 
 @dataclass(frozen=True)
 class CaseResult:
@@ -86,14 +86,23 @@ def run_eval(
     *,
     threshold: float = 1.0,
     suite: str = "",
+    trace: bool = False,
 ) -> EvalReport:
-    """Run every case through ``target``, score with ``judges``, aggregate."""
+    """Run every case through ``target``, score with ``judges``, aggregate.
+
+    With ``trace=True`` each case runs inside a ``litmus.eval.case`` span with
+    ``litmus.eval.target`` and ``litmus.eval.judge`` children (requires
+    ``litmus.tracing.init_tracing()`` first). Spans are no-ops when tracing
+    is not initialized, so results never depend on it.
+    """
     if not cases:
         raise ValueError("no cases to evaluate")
     if not judges:
         raise ValueError("at least one judge is required")
     if not 0.0 <= threshold <= 1.0:
         raise ValueError("threshold must be in [0, 1]")
+    if trace:
+        tracing.ensure_initialized()
 
     report = EvalReport(
         suite=suite,
@@ -103,13 +112,26 @@ def run_eval(
     totals: dict[str, float] = {j.name: 0.0 for j in judges}
 
     for case in cases:
-        prediction = target(case.input)
-        scores = [j.score(prediction, case.reference) for j in judges]
-        for s in scores:
-            totals[s.judge] += s.score
-        report.results.append(
-            CaseResult(case_id=case.id, prediction=prediction, scores=scores)
-        )
+        with tracing.span(
+            "litmus.eval.case",
+            attributes={"litmus.case.id": case.id, "litmus.suite": suite},
+        ):
+            with tracing.span("litmus.eval.target"):
+                prediction = target(case.input)
+            scores = []
+            for judge in judges:
+                with tracing.span(
+                    "litmus.eval.judge",
+                    attributes={"litmus.judge.name": judge.name},
+                ) as judge_span:
+                    s = judge.score(prediction, case.reference)
+                    judge_span.set_attribute("litmus.score", s.score)
+                scores.append(s)
+            for s in scores:
+                totals[s.judge] += s.score
+            report.results.append(
+                CaseResult(case_id=case.id, prediction=prediction, scores=scores)
+            )
 
     n = len(report.results)
     report.judge_means = {name: total / n for name, total in totals.items()}

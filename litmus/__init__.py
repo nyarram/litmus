@@ -12,7 +12,7 @@ from litmus.judges import ContainmentJudge, ExactMatchJudge, Judge, Score
 from litmus.judges_llm import DEFAULT_RUBRIC, LLMJudge, VerdictParseError
 from litmus.runner import CaseResult, EvalReport, run_eval
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "DEFAULT_RUBRIC",

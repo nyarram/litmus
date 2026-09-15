@@ -41,6 +41,23 @@ verdict parsing (fences and chatter tolerated, one retry, then a flagged
 reports MAE, bias, Pearson correlation, and a predicted-vs-human calibration
 curve.
 
+### Tracing
+
+```bash
+pip install "litmus[tracing]"
+litmus run --suite datasets/examples/basic.jsonl \
+           --target examples/echo_target.py:echo \
+           --trace
+```
+
+Every case runs inside a `litmus.eval.case` span with `litmus.eval.target`
+and `litmus.eval.judge` children, following GenAI semantic conventions
+(`gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.*`, …). Spans print
+to stdout by default — no collector needed; pass `--trace-otlp-endpoint`
+to ship them to an OTLP backend instead. Prompt/completion payloads are
+never captured unless you opt in, so traces are safe to export. Tracing is
+additive: omit `--trace` and the run is byte-identical.
+
 ## How it works
 
 1. **Golden dataset** (`litmus/dataset.py`) — a JSONL file of frozen
@@ -59,9 +76,12 @@ curve.
 ## Roadmap
 
 - **Piece 1:** repo bootstrap + deterministic eval core + CLI gate.
-- **Piece 2 (this):** LLM-as-judge (versioned prompt templates,
+- **Piece 2:** LLM-as-judge (versioned prompt templates,
   provider-agnostic client, robust verdict parsing) + `litmus calibrate`
   (MAE, bias, Pearson, calibration curve vs human labels).
+- **Piece 3 (this):** OpenTelemetry tracing with GenAI semantic conventions
+  (`litmus/tracing.py`, `--trace` on `litmus run`, console exporter by
+  default, content capture opt-in).
 - **Piece 2:** calibrated LLM-as-judge (prompt templates, calibration against
   human labels, agreement metrics).
 - **Piece 3:** OpenTelemetry tracing for LLM/tool calls (GenAI semconv).
