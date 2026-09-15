@@ -1,100 +1,85 @@
-# litmus
+# Litmus
 
-Offline regression evals for agents and LLM pipelines. Run a frozen golden
-dataset through the thing you ship, score every output with pluggable judges,
-and gate deploys on the numbers — before a user ever sees a regression.
+A free, open-source evaluation and observability harness for LLM pipelines and agents.
+
+Litmus answers the question every team shipping AI eventually asks: **"did my last change make the system better or worse?"** It runs versioned datasets against your pipeline, scores the outputs with deterministic checks and calibrated LLM judges, diffs runs against a baseline, and fails CI when quality regresses — then traces every score back to the exact model call that produced it.
+
+## Why this exists
+
+Most eval tooling is either a SaaS with a per-seat bill or a notebook nobody re-runs. Litmus is built to live in your repo and your CI:
+
+- **Offline regression evals** on a curated, versioned golden dataset — the highest-signal eval loop.
+- **Deterministic scorers** (exact match, contains, regex, JSON Schema) plus **LLM-as-judge** with pluggable providers.
+- **Judge calibration**: measure your judge's agreement with human labels before you trust it.
+- **CI quality gates**: `litmus run` exits non-zero when scores regress. Prompt changes become reviewable.
+- **OpenTelemetry tracing** with GenAI semantic conventions, so scores link to traces.
+- **Free to use, forever**: no paid APIs required. Judge inference runs on free tiers (Groq) or fully local models (Ollama). The dashboard and trace store are self-hosted.
 
 ## Quickstart
 
 ```bash
 pip install -e .
-litmus run --suite datasets/examples/basic.jsonl \
-           --target examples/echo_target.py:echo \
-           --judges exact_match,containment \
-           --threshold 0.7
+pytest                                    # 30+ tests, no API keys needed
+
+# Run the example eval (AstroDigest-style news scoring, stub system — no key needed)
+PYTHONPATH=. python -m litmus.cli run \
+  --dataset datasets/astrodigest_golden_seed_v1.jsonl \
+  --system examples.score_and_summarize:score_stub \
+  --scorer examples.score_and_summarize:scorers_basic \
+  --name demo-run --report-md report.md
 ```
 
-Exit code is the CI gate: `0` on pass, `1` on fail. JSON and Markdown reports
-land in `reports/`.
-
-### LLM-as-judge
+With a free Groq key you get the full run, including the LLM judge and the traced Groq system:
 
 ```bash
-# vet the judge against human labels first
-litmus calibrate --labeled datasets/examples/labeled.jsonl \
-                 --client examples/stub_client.py:stub
-
-# then use it in the gate
-litmus run --suite datasets/examples/basic.jsonl \
-           --target examples/echo_target.py:echo \
-           --judges exact_match,llm_judge \
-           --client examples/stub_client.py:stub \
-           --threshold 0.7
+export GROQ_API_KEY=...   # free tier at groq.com
+PYTHONPATH=. python -m litmus.cli run \
+  --dataset datasets/astrodigest_golden_seed_v1.jsonl \
+  --system examples.score_and_summarize:score_with_groq \
+  --scorer examples.score_and_summarize:scorers_full \
+  --name groq-run --trace \
+  --gate-scorer newsworthy_match --fail-below 0.8
 ```
 
-The judge takes a **client callable**, not a provider SDK: any
-`(prompt: str) -> str` function. Model choice, temperature, and auth live in
-your client factory (see `examples/stub_client.py` for the pattern); the
-judge owns only the versioned prompt template (`litmus/prompts/judge_v1.txt`),
-verdict parsing (fences and chatter tolerated, one retry, then a flagged
-`0.0` instead of a crash), and score normalization. `litmus calibrate`
-reports MAE, bias, Pearson correlation, and a predicted-vs-human calibration
-curve.
+## Architecture
 
-### Tracing
-
-```bash
-pip install "litmus[tracing]"
-litmus run --suite datasets/examples/basic.jsonl \
-           --target examples/echo_target.py:echo \
-           --trace
+```
+┌─────────────┐     ┌──────────────┐     ┌────────────────┐
+│  datasets/  │────▶│   runners    │────▶│    scorers     │
+│ versioned   │     │ concurrency, │     │ exact / regex /│
+│ .jsonl      │     │ timeouts,    │     │ jsonschema /   │
+└─────────────┘     │ retries      │     │ llm-judge      │
+                    └──────────────┘     └────────────────┘
+                           │                     │
+                           ▼                     ▼
+                    ┌──────────────┐     ┌────────────────┐
+                    │   tracing    │     │     report     │
+                    │ OTel GenAI   │     │ md + json,     │
+                    │ semconv      │     │ baseline diff  │
+                    └──────────────┘     └────────────────┘
 ```
 
-Every case runs inside a `litmus.eval.case` span with `litmus.eval.target`
-and `litmus.eval.judge` children, following GenAI semantic conventions
-(`gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.*`, …). Spans print
-to stdout by default — no collector needed; pass `--trace-otlp-endpoint`
-to ship them to an OTLP backend instead. Prompt/completion payloads are
-never captured unless you opt in, so traces are safe to export. Tracing is
-additive: omit `--trace` and the run is byte-identical.
+- `src/litmus/datasets.py` — `Case` / `Dataset` models, JSONL load/save.
+- `src/litmus/runners.py` — async runner: bounded concurrency, per-case timeout, retries with backoff, per-case OTel spans.
+- `src/litmus/scorers/` — `Score` protocol implementations; judges take any `ModelProvider` (`GroqProvider`, `OllamaProvider`).
+- `src/litmus/calibration.py` — judge-vs-human agreement reporting.
+- `src/litmus/report.py` — aggregate stats, markdown/JSON rendering, `compare_reports` for baseline diffs.
+- `src/litmus/tracing.py` — OTel setup + GenAI-semconv span helpers.
+- `src/litmus/cli.py` — `litmus run` with `--fail-below` / `--gate-scorer` CI gating.
 
-## How it works
+## Honest scope notes
 
-1. **Golden dataset** (`litmus/dataset.py`) — a JSONL file of frozen
-   `input`/`reference` pairs with optional `tags` and `metadata`. Loaded with
-   strict validation: every row needs `id`, `input`, `reference`; duplicate
-   ids and malformed rows fail fast.
-2. **Judges** (`litmus/judges.py`) — anything implementing
-   `score(prediction, reference) -> Score`. Piece 1 ships two deterministic
-   judges: `exact_match` and `containment`. `LLMJudge` is declared as an
-   interface; the calibrated model-graded implementation is piece 2.
-3. **Runner** (`litmus/runner.py`) — executes a target
-   (`Callable[[str], str]`, usually a thin wrapper around your pipeline) over
-   every case, aggregates per-judge mean scores, and produces an `EvalReport`
-   with pass/fail against a threshold.
+- The seed dataset (`datasets/astrodigest_golden_seed_v1.jsonl`) is a hand-built starter modeled on a real pipeline's shape. The path to a real golden set is one SQL export from the pipeline's database — documented in the roadmap, not faked here.
+- Planned "online" features (synthetic traffic replay) are **simulated load, not real user traffic**, and will be labeled as such everywhere. Offline evals are the primary workflow.
 
 ## Roadmap
 
-- **Piece 1:** repo bootstrap + deterministic eval core + CLI gate.
-- **Piece 2:** LLM-as-judge (versioned prompt templates,
-  provider-agnostic client, robust verdict parsing) + `litmus calibrate`
-  (MAE, bias, Pearson, calibration curve vs human labels).
-- **Piece 3 (this):** OpenTelemetry tracing with GenAI semantic conventions
-  (`litmus/tracing.py`, `--trace` on `litmus run`, console exporter by
-  default, content capture opt-in).
-- **Piece 2:** calibrated LLM-as-judge (prompt templates, calibration against
-  human labels, agreement metrics).
-- **Piece 3:** OpenTelemetry tracing for LLM/tool calls (GenAI semconv).
-- **Piece 4:** synthetic persona-based traffic generator — an explicit
-  stand-in for organic traffic, stated honestly here and in the code.
-- **Piece 5:** score-over-time dashboard, plus dogfooding against real
-  pipeline outputs.
+- **M1** ✅ Core engine, CLI, scorers, calibration, tracing, first real eval run.
+- **M2** — Judge calibration workflow + CI gating (GitHub Actions: eval on every PR, block on regression).
+- **M3** — OTel collector pipeline + score-over-time dashboard (FastAPI, self-hosted).
+- **M4** — MCP-based demo agent as a second consumer + synthetic traffic generator.
+- **M5** — Docker Compose deployment to a Hetzner VPS alongside the dogfood pipeline.
 
-## Design notes
+## License
 
-- The runner is synchronous and single-process on purpose: determinism and
-  debuggability first, throughput later.
-- Judges never see `metadata` or `tags` — scoring inputs are only
-  `(prediction, reference)`, so evals can't accidentally depend on labels.
-- Thresholds are per-run, not per-dataset, so the same suite can gate a
-  strict release and a lenient experiment.
+MIT — free for commercial and personal use.

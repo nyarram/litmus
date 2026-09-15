@@ -1,8 +1,0 @@
-{"id": "lb-001", "prediction": "Paris", "reference": "Paris", "human_score": 1.0}
-{"id": "lb-002", "prediction": "paris", "reference": "Paris", "human_score": 0.9}
-{"id": "lb-003", "prediction": "The capital of France is Paris.", "reference": "Paris", "human_score": 1.0}
-{"id": "lb-004", "prediction": "London", "reference": "Paris", "human_score": 0.0}
-{"id": "lb-005", "prediction": "Paris is a beautiful city", "reference": "Paris", "human_score": 0.7}
-{"id": "lb-006", "prediction": "", "reference": "Paris", "human_score": 0.0}
-{"id": "lb-007", "prediction": "PARIS", "reference": "Paris", "human_score": 0.9}
-{"id": "lb-008", "prediction": "I don't know", "reference": "Paris", "human_score": 0.1}

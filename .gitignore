@@ -1,11 +1,12 @@
 __pycache__/
 *.py[cod]
+.venv/
 *.egg-info/
 dist/
 build/
-.venv/
-venv/
 .pytest_cache/
-reports/
-*.log
-.DS_Store
+.ruff_cache/
+*.md.bak
+report*.md
+report*.json
+.env
