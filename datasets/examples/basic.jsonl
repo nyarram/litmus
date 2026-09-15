@@ -1,0 +1,4 @@
+{"id": "ex-001", "input": "hello", "reference": "hello", "tags": ["smoke"], "metadata": {"note": "exact match passes"}}
+{"id": "ex-002", "input": "summarize: the cat sat on the mat", "reference": "the cat sat on the mat", "tags": ["smoke"], "metadata": {"note": "containment passes, exact fails"}}
+{"id": "ex-003", "input": "translate to french: good morning", "reference": "bonjour", "tags": ["smoke"], "metadata": {"note": "both judges fail against the echo target"}}
+{"id": "ex-004", "input": "ping", "reference": "ping", "tags": ["smoke"], "metadata": {"note": "exact match passes"}}
