@@ -17,6 +17,30 @@ litmus run --suite datasets/examples/basic.jsonl \
 Exit code is the CI gate: `0` on pass, `1` on fail. JSON and Markdown reports
 land in `reports/`.
 
+### LLM-as-judge
+
+```bash
+# vet the judge against human labels first
+litmus calibrate --labeled datasets/examples/labeled.jsonl \
+                 --client examples/stub_client.py:stub
+
+# then use it in the gate
+litmus run --suite datasets/examples/basic.jsonl \
+           --target examples/echo_target.py:echo \
+           --judges exact_match,llm_judge \
+           --client examples/stub_client.py:stub \
+           --threshold 0.7
+```
+
+The judge takes a **client callable**, not a provider SDK: any
+`(prompt: str) -> str` function. Model choice, temperature, and auth live in
+your client factory (see `examples/stub_client.py` for the pattern); the
+judge owns only the versioned prompt template (`litmus/prompts/judge_v1.txt`),
+verdict parsing (fences and chatter tolerated, one retry, then a flagged
+`0.0` instead of a crash), and score normalization. `litmus calibrate`
+reports MAE, bias, Pearson correlation, and a predicted-vs-human calibration
+curve.
+
 ## How it works
 
 1. **Golden dataset** (`litmus/dataset.py`) — a JSONL file of frozen
@@ -34,7 +58,10 @@ land in `reports/`.
 
 ## Roadmap
 
-- **Piece 1 (this):** repo bootstrap + deterministic eval core + CLI gate.
+- **Piece 1:** repo bootstrap + deterministic eval core + CLI gate.
+- **Piece 2 (this):** LLM-as-judge (versioned prompt templates,
+  provider-agnostic client, robust verdict parsing) + `litmus calibrate`
+  (MAE, bias, Pearson, calibration curve vs human labels).
 - **Piece 2:** calibrated LLM-as-judge (prompt templates, calibration against
   human labels, agreement metrics).
 - **Piece 3:** OpenTelemetry tracing for LLM/tool calls (GenAI semconv).

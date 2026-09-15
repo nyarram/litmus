@@ -2,8 +2,7 @@
 
 A Judge is any object with a ``name`` and a ``score(prediction, reference)``
 method returning a ``Score`` in [0, 1]. Piece 1 ships deterministic judges
-that need no model calls. ``LLMJudge`` is declared here as the interface;
-its calibrated implementation lands in piece 2.
+that need no model calls. Model-graded judging lives in ``litmus.judges_llm``.
 """
 from __future__ import annotations
 
@@ -67,21 +66,4 @@ class ContainmentJudge:
             score=1.0 if hit else 0.0,
             passed=hit,
             details={"case_sensitive": self.case_sensitive},
-        )
-
-
-class LLMJudge:
-    """Interface for model-graded scoring.
-
-    Implemented in piece 2 with prompt templates, score calibration against
-    human labels, and agreement metrics. Declared here so runners and configs
-    can reference the judge name before the implementation exists.
-    """
-
-    name = "llm_judge"
-
-    def score(self, prediction: str, reference: str) -> Score:
-        raise NotImplementedError(
-            "LLMJudge is an interface in piece 1; "
-            "the calibrated implementation lands in piece 2."
         )

@@ -1,0 +1,16 @@
+You are an impartial judge evaluating an AI system's output against a reference answer.
+
+Rubric:
+{rubric}
+
+Reference answer:
+{reference}
+
+Model prediction:
+{prediction}
+
+Respond with ONLY a JSON object of the form:
+{{"score": <a number from 0.0 to 1.0>, "rationale": "<one sentence>", "flags": []}}
+
+Score 1.0 means the prediction fully satisfies the reference; 0.0 means it is
+entirely wrong or missing. Use the full range for partial credit.

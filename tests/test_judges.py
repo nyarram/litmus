@@ -1,7 +1,6 @@
 """Tests for the deterministic judges."""
-import pytest
 
-from litmus.judges import ContainmentJudge, ExactMatchJudge, LLMJudge
+from litmus.judges import ContainmentJudge, ExactMatchJudge
 
 
 def test_exact_match_pass():
@@ -27,8 +26,3 @@ def test_containment_pass():
 def test_containment_fail():
     s = ContainmentJudge().score("nothing relevant", "bonjour")
     assert not s.passed
-
-
-def test_llm_judge_is_interface_only():
-    with pytest.raises(NotImplementedError, match="piece 2"):
-        LLMJudge().score("a", "b")
