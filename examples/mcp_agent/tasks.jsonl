@@ -1,0 +1,6 @@
+{"name": "mcp-agent-demo", "version": "1.0"}
+{"id": "calc-1", "input": "What is 17 * 23?", "expected": "391", "metadata": {"tools": ["calculator"]}}
+{"id": "weather-1", "input": "What is the weather in Minneapolis?", "expected": "It is sunny, 72F in Minneapolis.", "metadata": {"tools": ["weather_lookup"]}}
+{"id": "combo-1", "input": "What is 12 * 12? Also, what is the weather in Duluth?", "expected": "144, and it is cloudy, 58F in Duluth.", "metadata": {"tools": ["calculator", "weather_lookup"]}}
+{"id": "summarize-1", "input": "Summarize in one sentence: The James Webb Space Telescope launched in December 2021. It observes the universe in infrared light. Its primary mirror is 6.5 meters across.", "expected": "The James Webb Space Telescope launched in December 2021.", "metadata": {"tools": ["summarize"]}}
+{"id": "no-tool-1", "input": "What is the capital of France?", "expected": "Paris", "metadata": {"tools": []}}

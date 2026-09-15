@@ -122,6 +122,35 @@ LITMUS_OTLP_ENDPOINT=http://localhost:4318 litmus run ... --report-json reports/
 `--otlp-endpoint` (or the env var) overrides `--trace`. The same compose file
 is what a server deploy reuses — see the roadmap.
 
+## Second consumer: MCP demo agent
+
+`examples/mcp_agent/` is a tiny real agent built on the official MCP SDK —
+proof the harness generalizes beyond one pipeline:
+
+- `server.py` — MCP server (stdio) with three deterministic tools:
+  `calculator`, `weather_lookup`, `summarize`.
+- `agent.py` — a minimal ReAct loop. The model emits fenced
+  ` ```tool {"name": ..., "arguments": {...}} ` blocks; the agent executes
+  them via the MCP client and feeds results back. Each tool call gets a
+  litmus trace span.
+- `tasks.jsonl` — 5 demo tasks with expected answers and expected tool
+  sequences. `scorers.py` — a `ToolSequenceScorer` that grades whether the
+  agent used the right tools (via a per-case tool-call registry, since
+  scorers only see `(case, output)`).
+
+```bash
+pip install 'litmus[agent]'
+litmus run --dataset examples/mcp_agent/tasks.jsonl \
+  --system examples.mcp_agent.agent:agent_system \
+  --scorer examples.mcp_agent.scorers:tool_scorer \
+  --scorer litmus.scorers.exact:ExactMatchScorer
+```
+
+No API keys needed: `LITMUS_AGENT_PROVIDER` defaults to `stub` (scripted
+responses for the demo tasks). Set it to `groq` (needs `GROQ_API_KEY`) or
+`ollama` (needs a local Ollama server) to drive the same agent with a real
+model.
+
 ## Tracing is optional and additive
 
 The OTel SDK is an **optional** extra (`pip install ".[tracing]"`). Importing
@@ -176,7 +205,9 @@ synth` CLIs only initialize tracing with `--trace`.
   fails the check on regression vs a committed baseline.
 - **M3** ✅ Score-over-time dashboard (`litmus dashboard`, FastAPI) + OTel
   collector pipeline (compose: Jaeger + collector, `--otlp-endpoint`).
-- **M4** — MCP-based demo agent as a second consumer.
+- **M4** ✅ MCP demo agent — a tiny ReAct agent on the official MCP SDK
+  (`examples/mcp_agent/`) evaluated by the same harness: `tools_used` +
+  `exact_match` scorers, stub provider for keyless runs.
 - **M5** — Docker Compose deployment to a Hetzner VPS alongside the dogfood pipeline.
 
 ## License

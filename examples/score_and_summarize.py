@@ -44,8 +44,17 @@ OUTPUT_SCHEMA = {
 }
 
 _KEYWORDS = {
-    "nasa", "webb", "exoplanet", "black hole", "spacex", "artemis",
-    "astronomers", "telescope", "jwst", "iss", "esa",
+    "nasa",
+    "webb",
+    "exoplanet",
+    "black hole",
+    "spacex",
+    "artemis",
+    "astronomers",
+    "telescope",
+    "jwst",
+    "iss",
+    "esa",
 }
 
 
