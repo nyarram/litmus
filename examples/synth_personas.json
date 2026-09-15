@@ -1,0 +1,46 @@
+{
+  "personas": [
+    {
+      "description": "A non-technical user looking for help with everyday tasks",
+      "intents": [
+        {
+          "description": "Asks how to do something step by step",
+          "name": "how_to",
+          "weight": 6
+        },
+        {
+          "description": "Asks why something happened or isn't working",
+          "name": "why",
+          "weight": 2.5
+        },
+        {
+          "description": "Vague, typo-ridden, or confusing request",
+          "name": "edge",
+          "weight": 1.5
+        }
+      ],
+      "name": "support_seeker"
+    },
+    {
+      "description": "A technical user who wants precise, detailed answers fast",
+      "intents": [
+        {
+          "description": "Asks for an in-depth technical explanation",
+          "name": "deep_dive",
+          "weight": 5
+        },
+        {
+          "description": "Asks to compare two approaches or tools",
+          "name": "compare",
+          "weight": 3
+        },
+        {
+          "description": "Pastes an error and wants a diagnosis",
+          "name": "debug",
+          "weight": 2
+        }
+      ],
+      "name": "power_user"
+    }
+  ]
+}

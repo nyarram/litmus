@@ -18,11 +18,12 @@ Most eval tooling is either a SaaS with a per-seat bill or a notebook nobody re-
 ## Quickstart
 
 ```bash
-pip install -e .
-pytest                                    # 30+ tests, no API keys needed
+pip install -e .                        # core only
+pip install -e ".[tracing]"             # + OpenTelemetry tracing (optional)
+pytest                                    # 41 tests, no API keys needed
 
 # Run the example eval (AstroDigest-style news scoring, stub system — no key needed)
-PYTHONPATH=. python -m litmus.cli run \
+PYTHONPATH=src python -m litmus.cli run \
   --dataset datasets/astrodigest_golden_seed_v1.jsonl \
   --system examples.score_and_summarize:score_stub \
   --scorer examples.score_and_summarize:scorers_basic \
@@ -33,13 +34,41 @@ With a free Groq key you get the full run, including the LLM judge and the trace
 
 ```bash
 export GROQ_API_KEY=...   # free tier at groq.com
-PYTHONPATH=. python -m litmus.cli run \
+PYTHONPATH=src python -m litmus.cli run \
   --dataset datasets/astrodigest_golden_seed_v1.jsonl \
   --system examples.score_and_summarize:score_with_groq \
   --scorer examples.score_and_summarize:scorers_full \
   --name groq-run --trace \
   --gate-scorer newsworthy_match --fail-below 0.8
 ```
+
+## Synthetic traffic (`litmus synth`)
+
+Generate persona-based load against any async system, score the responses,
+and gate on quality — every span labeled `litmus.synthetic: true` so
+simulated traffic is trivially filterable and never confused with organic
+traffic:
+
+```bash
+PYTHONPATH=src python -m litmus.cli synth \
+  --personas examples/synth_personas.json \
+  --provider mymod:MyProvider \          # async ModelProvider (writes the requests)
+  --system mymod:my_system \             # async callable: request text -> response
+  --n 50 --seed 0 --concurrency 8 --fail-below 0.7
+```
+
+Without `--scorer`, a reference-free LLM quality judge scores each response.
+Reports include error rate, latency p50/p95, per-persona breakdowns, and the
+standard scorer table.
+
+## Tracing is optional and additive
+
+The OTel SDK is an **optional** extra (`pip install ".[tracing]"`). Importing
+`litmus` and running evals never requires it — every tracing helper is a
+no-op until `init_tracing()` is called. Prompt/completion capture is **opt-in**
+(`capture_content=True`) and recorded as span *events*, never attributes, so
+payloads aren't indexed by your trace backend. The `litmus run` / `litmus
+synth` CLIs only initialize tracing with `--trace`.
 
 ## Architecture
 
@@ -64,20 +93,27 @@ PYTHONPATH=. python -m litmus.cli run \
 - `src/litmus/scorers/` — `Score` protocol implementations; judges take any `ModelProvider` (`GroqProvider`, `OllamaProvider`).
 - `src/litmus/calibration.py` — judge-vs-human agreement reporting.
 - `src/litmus/report.py` — aggregate stats, markdown/JSON rendering, `compare_reports` for baseline diffs.
-- `src/litmus/tracing.py` — OTel setup + GenAI-semconv span helpers.
+- `src/litmus/synth.py` — synthetic persona traffic: seeded generation, load run
+  through the standard runner, scoring, and synth reports.
+- `src/litmus/tracing.py` — OTel setup + GenAI-semconv span helpers. Optional
+  extra; no-op safe; content capture opt-in.
 - `src/litmus/cli.py` — `litmus run` with `--fail-below` / `--gate-scorer` CI gating.
 
 ## Honest scope notes
 
 - The seed dataset (`datasets/astrodigest_golden_seed_v1.jsonl`) is a hand-built starter modeled on a real pipeline's shape. The path to a real golden set is one SQL export from the pipeline's database — documented in the roadmap, not faked here.
-- Planned "online" features (synthetic traffic replay) are **simulated load, not real user traffic**, and will be labeled as such everywhere. Offline evals are the primary workflow.
+- Synthetic traffic (`litmus synth`) is **simulated load, not real user traffic**,
+  and is labeled `litmus.synthetic: true` on every span and in every report.
+  Offline evals are the primary workflow.
 
 ## Roadmap
 
 - **M1** ✅ Core engine, CLI, scorers, calibration, tracing, first real eval run.
+- **Synthetic traffic** ✅ Persona-based generation + load runner (`litmus synth`),
+  reference-free quality judge, `litmus.synthetic` span labeling, CI gating.
 - **M2** — Judge calibration workflow + CI gating (GitHub Actions: eval on every PR, block on regression).
 - **M3** — OTel collector pipeline + score-over-time dashboard (FastAPI, self-hosted).
-- **M4** — MCP-based demo agent as a second consumer + synthetic traffic generator.
+- **M4** — MCP-based demo agent as a second consumer.
 - **M5** — Docker Compose deployment to a Hetzner VPS alongside the dogfood pipeline.
 
 ## License

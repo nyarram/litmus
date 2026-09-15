@@ -9,16 +9,17 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-from opentelemetry import trace
-
+from litmus import tracing
 from litmus.datasets import Case, Dataset
 from litmus.scorers.base import Score, Scorer
 
 SystemFn = Callable[[Case], Awaitable[Any]]
+SpanAttributesFn = Callable[[Case], dict[str, Any]]
 
 
 @dataclass
@@ -65,21 +66,38 @@ class Runner:
         max_concurrency: int = 8,
         timeout_s: float = 120.0,
         retries: int = 1,
-        tracer: trace.Tracer | None = None,
+        tracer: Any | None = None,
+        extra_span_attributes: SpanAttributesFn | None = None,
     ):
         self.system = system
         self.scorers = scorers or []
         self.max_concurrency = max_concurrency
         self.timeout_s = timeout_s
         self.retries = retries
-        self.tracer = tracer or trace.get_tracer("litmus.runner")
+        # A caller-supplied OTel tracer; when None, litmus.tracing.case_span
+        # is used instead (a no-op unless init_tracing() was called).
+        self.tracer = tracer
+        # Per-case span attributes, e.g. lambda case: {"litmus.synthetic": True}.
+        self.extra_span_attributes = extra_span_attributes
+
+    @contextmanager
+    def _span_for(self, case: Case) -> Iterator[tuple[Any, str | None]]:
+        extra = self.extra_span_attributes(case) if self.extra_span_attributes else {}
+        if self.tracer is not None:
+            with self.tracer.start_as_current_span("litmus.case") as span:
+                span.set_attribute("litmus.case_id", case.id)
+                for k, v in extra.items():
+                    span.set_attribute(k, v)
+                ctx = span.get_span_context()
+                trace_id = format(ctx.trace_id, "032x") if ctx else None
+                yield span, trace_id
+        else:
+            with tracing.case_span(case.id, extra) as (span, trace_id):
+                yield span, trace_id
 
     async def _run_case(self, case: Case, sem: asyncio.Semaphore) -> CaseResult:
         async with sem:
-            with self.tracer.start_as_current_span("litmus.case") as span:
-                span.set_attribute("litmus.case_id", case.id)
-                ctx = span.get_span_context()
-                trace_id = format(ctx.trace_id, "032x") if ctx else None
+            with self._span_for(case) as (span, trace_id):
                 start = time.perf_counter()
                 output: Any = None
                 error: str | None = None

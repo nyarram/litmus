@@ -13,7 +13,7 @@ from litmus.datasets import Dataset
 from litmus.report import build_report
 from litmus.runners import Runner
 from litmus.scorers.base import Scorer
-from litmus.tracing import init_console_tracing, init_tracing
+from litmus.tracing import init_console_tracing
 
 app = typer.Typer(help="Litmus: eval harness for LLM pipelines and agents.")
 
@@ -72,8 +72,7 @@ def run(
     """Run a dataset against a system and print a score report."""
     if trace:
         init_console_tracing()
-    else:
-        init_tracing()
+    # Without --trace, spans are no-ops and tracing stays uninitialized.
 
     ds = Dataset.from_jsonl(dataset)
     system_fn = _import_attr(system)
@@ -116,6 +115,89 @@ def version():
     from litmus import __version__
 
     typer.echo(f"litmus {__version__}")
+
+
+@app.command()
+def synth(
+    personas: Path = typer.Option(..., "--personas", help="Personas JSON file"),
+    provider: str = typer.Option(
+        ..., "--provider", help="ModelProvider as 'module:attr' (async); used to write requests"
+    ),
+    system: str = typer.Option(
+        ..., "--system", help="System under test as 'module:attr' (async callable)"
+    ),
+    scorer: list[str] = typer.Option(
+        [], "--scorer", help="Scorer as 'module:attr' (repeatable); default: quality rubric judge"
+    ),
+    n: int = typer.Option(20, "--n", help="Number of synthetic requests"),
+    seed: int = typer.Option(0, "--seed", help="Seed for reproducible generation"),
+    concurrency: int = typer.Option(8, "--concurrency"),
+    timeout: float = typer.Option(120.0, "--timeout", help="Per-request timeout in seconds"),
+    retries: int = typer.Option(1, "--retries"),
+    report_md: Path | None = typer.Option(None, "--report-md", help="Write markdown report here"),
+    report_json: Path | None = typer.Option(None, "--report-json", help="Write JSON report here"),
+    fail_below: float | None = typer.Option(
+        None, "--fail-below", help="Exit 1 if the lowest scorer mean drops below this"
+    ),
+    trace: bool = typer.Option(False, "--trace", help="Print OTel spans to stdout"),
+):
+    """Generate synthetic persona traffic, load-test a system, and score it.
+
+    Every span is labeled litmus.synthetic=true so synthetic traffic is
+    trivially filterable — and never confused with organic traffic.
+    """
+    import asyncio
+
+    from litmus import tracing
+    from litmus.synth import default_quality_judge, load_personas, run_synth
+
+    if trace:
+        tracing.init_console_tracing()
+
+    persona_list = load_personas(personas)
+    provider_obj = _import_attr(provider)
+    if isinstance(provider_obj, type):
+        provider_obj = provider_obj()
+    system_fn = _import_attr(system)
+    if not callable(system_fn):
+        raise typer.BadParameter(f"--system {system!r} is not callable")
+    scorers = _resolve_scorers(scorer) or [default_quality_judge(provider_obj)]
+
+    typer.echo(f"Generating {n} synthetic requests (seed {seed}) ...")
+    report = asyncio.run(
+        run_synth(
+            system_fn,
+            persona_list,
+            provider_obj,
+            n=n,
+            seed=seed,
+            scorers=scorers,
+            concurrency=concurrency,
+            timeout_s=timeout,
+            retries=retries,
+            trace=trace,
+        )
+    )
+    typer.echo("")
+    typer.echo(report.to_markdown())
+    if report_json:
+        report_json.write_text(report.to_json())
+        typer.echo(f"Wrote JSON report → {report_json}")
+    if report_md:
+        report_md.write_text(report.to_markdown())
+        typer.echo(f"Wrote markdown report → {report_md}")
+
+    if fail_below is not None:
+        means = [s.mean for s in report.eval_report.summaries.values()]
+        worst = min(means) if means else 1.0
+        if report.error_rate > 0 or worst < fail_below:
+            typer.echo(
+                f"SYNTH GATE FAILED: error_rate={report.error_rate:.1%}, "
+                f"worst scorer mean {worst:.3f} < {fail_below}",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        typer.echo(f"Synth gate passed: worst scorer mean {worst:.3f} >= {fail_below}")
 
 
 if __name__ == "__main__":

@@ -97,39 +97,55 @@ Rate the output on an integer scale from {min_score} to {max_score} (inclusive).
 
 ## Input given to the system
 {case_input}
-
-## Reference (expected) answer
-{expected}
-
+{reference_block}
 ## System's actual output
 {actual_output}
 
 Respond with ONLY valid JSON: {{"score": <int>, "explanation": "<1-2 sentences>"}}"""
 
+_REFERENCE_BLOCK = """\
+## Reference (expected) answer
+{expected}
+"""
+
 
 class LLMJudge:
     """Grades output against a rubric using an LLM. Score is normalized to 0..1."""
 
-    def __init__(self, rubric: JudgeRubric, provider: ModelProvider, name: str | None = None):
+    def __init__(
+        self,
+        rubric: JudgeRubric,
+        provider: ModelProvider,
+        name: str | None = None,
+        max_retries: int = 1,
+    ):
         self.rubric = rubric
         self.provider = provider
         self.name = name or f"judge_{rubric.name}"
+        self.max_retries = max_retries
 
     def _prompt(self, case: Case, output: Any) -> str:
         def fmt(v: Any) -> str:
             return v if isinstance(v, str) else json.dumps(v, indent=2, default=str)
 
+        # Synthetic traffic has no reference answer: judge quality alone.
+        reference_block = (
+            _REFERENCE_BLOCK.format(expected=fmt(case.expected))
+            if case.expected is not None
+            else "## Reference\n(none — judge the output on its own merits)\n"
+        )
         return _JUDGE_PROMPT.format(
             rubric_name=self.rubric.name,
             criteria=self.rubric.criteria,
             min_score=self.rubric.min_score,
             max_score=self.rubric.max_score,
             case_input=fmt(case.input),
-            expected=fmt(case.expected),
+            reference_block=reference_block,
             actual_output=fmt(output),
         )
 
-    async def score(self, case: Case, output: Any) -> Score:
+    async def _verdict(self, case: Case, output: Any) -> tuple[Score | None, str]:
+        """One judge attempt; returns (score, raw) with score None when unparseable."""
         raw = await self.provider.complete(
             [{"role": "user", "content": self._prompt(case, output)}], json_mode=True
         )
@@ -138,21 +154,31 @@ class LLMJudge:
             value = int(parsed["score"])
             explanation = str(parsed.get("explanation", ""))
         except (json.JSONDecodeError, KeyError, ValueError, TypeError):
-            return Score(
-                name=self.name,
-                value=0.0,
-                passed=False,
-                explanation="Judge returned unparseable output",
-                details={"raw": raw[:500]},
-            )
+            return None, raw
         value = max(self.rubric.min_score, min(self.rubric.max_score, value))
         span = self.rubric.max_score - self.rubric.min_score
         normalized = (value - self.rubric.min_score) / span if span else 1.0
-        passed = value >= self.rubric.pass_threshold
+        return (
+            Score(
+                name=self.name,
+                value=normalized,
+                passed=value >= self.rubric.pass_threshold,
+                explanation=explanation,
+                details={"raw_score": value, "threshold": self.rubric.pass_threshold},
+            ),
+            raw,
+        )
+
+    async def score(self, case: Case, output: Any) -> Score:
+        last_raw = ""
+        for _ in range(self.max_retries + 1):
+            verdict, last_raw = await self._verdict(case, output)
+            if verdict is not None:
+                return verdict
         return Score(
             name=self.name,
-            value=normalized,
-            passed=passed,
-            explanation=explanation,
-            details={"raw_score": value, "threshold": self.rubric.pass_threshold},
+            value=0.0,
+            passed=False,
+            explanation="Judge returned unparseable output",
+            details={"raw": last_raw[:500]},
         )

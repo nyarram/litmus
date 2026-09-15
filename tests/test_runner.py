@@ -93,9 +93,17 @@ async def test_scorer_crash_becomes_failed_score():
 
 
 async def test_trace_id_is_attached():
-    async def ok(case):
-        return case.expected
+    from litmus import tracing
 
-    runner = Runner(ok, [], retries=0)
-    result = await runner.run(_ds(1))
-    assert result.results[0].trace_id is not None
+    tracing.init_tracing(exporter="memory")
+    try:
+
+        async def ok(case):
+            return case.expected
+
+        runner = Runner(ok, [], retries=0)
+        result = await runner.run(_ds(1))
+        assert result.results[0].trace_id is not None
+        assert result.results[0].trace_id != "0" * 32
+    finally:
+        tracing.shutdown_tracing()
