@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Trends{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block body %}
+<h1>Score trends</h1>
+{% if not scorers %}
+<p class="muted">No scorer data yet.</p>
+{% else %}
+{% for name in scorers %}
+<h2>{{ name }}</h2>
+<canvas id="chart-{{ loop.index }}"></canvas>
+{% endfor %}
+<script>
+const series = {{ series|tojson }};
+const names = {{ scorers|tojson }};
+names.forEach((name, i) => {
+  const pts = series[name];
+  new Chart(document.getElementById("chart-" + (i + 1)), {
+    type: "line",
+    data: {
+      labels: pts.map(p => p.run_name),
+      datasets: [
+        { label: "mean", data: pts.map(p => p.mean), borderColor: "#2563eb", tension: 0.2 },
+        { label: "pass rate", data: pts.map(p => p.pass_rate), borderColor: "#16a34a", tension: 0.2 },
+      ],
+    },
+    options: {
+      scales: { y: { min: 0, max: 1 } },
+      plugins: { tooltip: { callbacks: {
+        title: items => pts[items[0].dataIndex].created_at + " — " + pts[items[0].dataIndex].run_name,
+      } } },
+    },
+  });
+});
+</script>
+{% endif %}
+{% endblock %}

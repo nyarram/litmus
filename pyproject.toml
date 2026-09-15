@@ -20,6 +20,12 @@ dependencies = [
 tracing = [
     "opentelemetry-api>=1.27",
     "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp>=1.27",
+]
+dashboard = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "jinja2>=3.1",
 ]
 dev = [
     "pytest>=8.0",

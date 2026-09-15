@@ -88,6 +88,40 @@ PYTHONPATH=src python -m litmus.cli run \
 git add reports/baseline.json && git commit -m "Refresh eval baseline"
 ```
 
+## Dashboard: scores over time
+
+```bash
+pip install 'litmus[dashboard]'
+litmus dashboard --reports-dir reports
+# open http://127.0.0.1:8000
+```
+
+The dashboard reads report JSON files from a directory (the filesystem is the
+database — no database to operate) and renders:
+
+- **Runs** — every eval run with per-scorer means, error counts, dataset versions.
+- **Run detail** — per-case scores, latency, errors, and each `trace_id` linked
+  into Jaeger for drill-down (with `--jaeger-url`).
+- **Trends** — per-scorer mean and pass-rate over time (Chart.js).
+
+`GET /api/runs` also exposes the run list as JSON for automation.
+
+## Tracing pipeline: collector → Jaeger
+
+`init_tracing` already spoke OTLP; the CLI now wires it up:
+
+```bash
+# terminal 1: local observability stack
+cd deploy && docker compose up   # Jaeger UI at :16686, collector at :4317/:4318
+
+# terminal 2: export spans instead of printing them
+LITMUS_OTLP_ENDPOINT=http://localhost:4318 litmus run ... --report-json reports/x.json
+# or: litmus run ... --otlp-endpoint http://localhost:4318
+```
+
+`--otlp-endpoint` (or the env var) overrides `--trace`. The same compose file
+is what a server deploy reuses — see the roadmap.
+
 ## Tracing is optional and additive
 
 The OTel SDK is an **optional** extra (`pip install ".[tracing]"`). Importing
@@ -140,7 +174,8 @@ synth` CLIs only initialize tracing with `--trace`.
   reference-free quality judge, `litmus.synthetic` span labeling, CI gating.
 - **M2** ✅ CI gating — GitHub Actions runs evals on every PR, `litmus diff`
   fails the check on regression vs a committed baseline.
-- **M3** — OTel collector pipeline + score-over-time dashboard (FastAPI, self-hosted).
+- **M3** ✅ Score-over-time dashboard (`litmus dashboard`, FastAPI) + OTel
+  collector pipeline (compose: Jaeger + collector, `--otlp-endpoint`).
 - **M4** — MCP-based demo agent as a second consumer.
 - **M5** — Docker Compose deployment to a Hetzner VPS alongside the dogfood pipeline.
 

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Runs{% endblock %}
+{% block body %}
+<h1>Eval runs</h1>
+{% if not reports %}
+<p class="muted">No reports found. Run <code>litmus run --report-json reports/&lt;name&gt;.json</code> to create one.</p>
+{% else %}
+<table>
+  <tr><th>Run</th><th>Dataset</th><th>Created</th><th>Cases</th><th>Errors</th>
+  {% for s in scorers %}<th>{{ s }} mean</th>{% endfor %}</tr>
+  {% for r in reports|reverse %}
+  <tr>
+    <td><a href="/runs/{{ r.run_name }}">{{ r.run_name }}</a></td>
+    <td>{{ r.dataset_name }} <span class="muted">v{{ r.dataset_version }}</span></td>
+    <td class="muted">{{ r.created_at }}</td>
+    <td>{{ r.results|length }}</td>
+    <td>{% if r.n_errors %}<span class="fail">{{ r.n_errors }}</span>{% else %}0{% endif %}</td>
+    {% for s in scorers %}
+    <td>{% if s in r.summaries %}{{ "%.3f"|format(r.summaries[s].mean) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% endblock %}

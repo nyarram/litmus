@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ report.run_name }}{% endblock %}
+{% block body %}
+<h1>{{ report.run_name }}</h1>
+<p class="muted">{{ report.dataset_name }} v{{ report.dataset_version }} · {{ report.created_at }} ·
+{{ report.results|length }} cases, {{ report.n_errors }} errors</p>
+
+<h2>Scorer summary</h2>
+<table>
+  <tr><th>Scorer</th><th>n</th><th>Mean</th><th>Pass rate</th><th>Passed</th><th>Failed</th></tr>
+  {% for name, s in report.summaries.items() %}
+  <tr><td>{{ name }}</td><td>{{ s.n }}</td><td>{{ "%.3f"|format(s.mean) }}</td>
+  <td>{% if s.pass_rate is not none %}{{ "%.1f"|format(s.pass_rate * 100) }}%{% else %}—{% endif %}</td>
+  <td class="pass">{{ s.n_passed }}</td><td class="{% if s.n_failed %}fail{% endif %}">{{ s.n_failed }}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Cases</h2>
+<table>
+  <tr><th>Case</th><th>Scores</th><th>Latency</th><th>Error</th><th>Trace</th></tr>
+  {% for c in report.results %}
+  <tr>
+    <td><code>{{ c.case_id }}</code></td>
+    <td>
+      {% for name, sc in c.scores.items() %}
+      <span class="chip {% if sc.passed is true %}pass{% elif sc.passed is false %}fail{% endif %}"
+        title="{{ sc.explanation or '' }}">{{ name }}: {{ "%.2f"|format(sc.value) }}</span>
+      {% endfor %}
+    </td>
+    <td class="muted">{{ "%.2f"|format(c.latency_s) }}s</td>
+    <td>{% if c.error %}<span class="fail">{{ c.error }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td>{% if c.trace_id and jaeger_url %}<a href="{{ jaeger_url }}/trace/{{ c.trace_id }}">trace</a>
+        {% elif c.trace_id %}<span class="muted" title="set --jaeger-url to link traces">{{ c.trace_id[:16] }}…</span>
+        {% else %}<span class="muted">—</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

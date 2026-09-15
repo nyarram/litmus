@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import os
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,32 @@ from litmus.scorers.base import Scorer
 from litmus.tracing import init_console_tracing
 
 app = typer.Typer(help="Litmus: eval harness for LLM pipelines and agents.")
+
+
+def _init_tracing(trace: bool, otlp_endpoint: str | None) -> None:
+    """Set up tracing from CLI flags.
+
+    ``--otlp-endpoint`` (or the ``LITMUS_OTLP_ENDPOINT`` env var) wins over
+    ``--trace``: spans are exported to the collector instead of stdout.
+    """
+    endpoint = otlp_endpoint or os.environ.get("LITMUS_OTLP_ENDPOINT")
+    if endpoint:
+        from litmus import tracing
+
+        tracing.init_tracing(exporter="otlp", endpoint=endpoint)
+    elif trace:
+        init_console_tracing()
+    # Otherwise spans are no-ops and tracing stays uninitialized.
+
+
+def _otlp_option() -> Any:
+    return typer.Option(
+        None,
+        "--otlp-endpoint",
+        help="Export OTel spans via OTLP to this endpoint "
+        "(e.g. http://localhost:4318). Falls back to LITMUS_OTLP_ENDPOINT. "
+        "Overrides --trace.",
+    )
 
 
 def _import_attr(path: str) -> Any:
@@ -68,11 +95,10 @@ def run(
         None, "--gate-scorer", help="Scorer the quality gate watches"
     ),
     trace: bool = typer.Option(False, "--trace", help="Print OTel spans to stdout"),
+    otlp_endpoint: str | None = _otlp_option(),
 ):
     """Run a dataset against a system and print a score report."""
-    if trace:
-        init_console_tracing()
-    # Without --trace, spans are no-ops and tracing stays uninitialized.
+    _init_tracing(trace, otlp_endpoint)
 
     ds = Dataset.from_jsonl(dataset)
     system_fn = _import_attr(system)
@@ -147,6 +173,35 @@ def version():
 
 
 @app.command()
+def dashboard(
+    reports_dir: Path = typer.Option(
+        Path("reports"), "--reports-dir", help="Directory of eval report JSON files"
+    ),
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host"),
+    port: int = typer.Option(8000, "--port", help="Bind port"),
+    jaeger_url: str | None = typer.Option(
+        None,
+        "--jaeger-url",
+        help="Base URL of the Jaeger UI (e.g. http://localhost:16686); "
+        "case trace_ids link there for drill-down",
+    ),
+):
+    """Serve the score-over-time dashboard."""
+    try:
+        import uvicorn
+
+        from litmus.dashboard import create_app
+    except ImportError as e:
+        raise typer.BadParameter(
+            "the dashboard needs the 'dashboard' extra: pip install 'litmus[dashboard]'"
+        ) from e
+
+    app_ = create_app(reports_dir=reports_dir, jaeger_url=jaeger_url)
+    typer.echo(f"Serving litmus dashboard from {reports_dir} at http://{host}:{port}")
+    uvicorn.run(app_, host=host, port=port)
+
+
+@app.command()
 def synth(
     personas: Path = typer.Option(..., "--personas", help="Personas JSON file"),
     provider: str = typer.Option(
@@ -169,6 +224,7 @@ def synth(
         None, "--fail-below", help="Exit 1 if the lowest scorer mean drops below this"
     ),
     trace: bool = typer.Option(False, "--trace", help="Print OTel spans to stdout"),
+    otlp_endpoint: str | None = _otlp_option(),
 ):
     """Generate synthetic persona traffic, load-test a system, and score it.
 
@@ -177,11 +233,9 @@ def synth(
     """
     import asyncio
 
-    from litmus import tracing
     from litmus.synth import default_quality_judge, load_personas, run_synth
 
-    if trace:
-        tracing.init_console_tracing()
+    _init_tracing(trace, otlp_endpoint)
 
     persona_list = load_personas(personas)
     provider_obj = _import_attr(provider)
@@ -193,6 +247,7 @@ def synth(
     scorers = _resolve_scorers(scorer) or [default_quality_judge(provider_obj)]
 
     typer.echo(f"Generating {n} synthetic requests (seed {seed}) ...")
+    traced = trace or bool(otlp_endpoint or os.environ.get("LITMUS_OTLP_ENDPOINT"))
     report = asyncio.run(
         run_synth(
             system_fn,
@@ -204,7 +259,7 @@ def synth(
             concurrency=concurrency,
             timeout_s=timeout,
             retries=retries,
-            trace=trace,
+            trace=traced,
         )
     )
     typer.echo("")

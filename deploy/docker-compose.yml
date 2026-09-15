@@ -1,0 +1,25 @@
+# Local observability stack for litmus: Jaeger (trace UI) + OTel Collector.
+# Usage:
+#   cd deploy && docker compose up
+#   # in another shell:
+#   LITMUS_OTLP_ENDPOINT=http://localhost:4318 litmus run ... --report-json reports/x.json
+#   # then open http://localhost:16686 for traces,
+#   # and litmus dashboard --jaeger-url http://localhost:16686 for scores.
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    ports:
+      - "16686:16686" # Jaeger UI
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.122.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    depends_on:
+      - jaeger

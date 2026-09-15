@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>litmus dashboard — {% block title %}{% endblock %}</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 1100px;
+         margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+  nav a { margin-right: 1.2rem; text-decoration: none; color: #2563eb; font-weight: 600; }
+  nav { margin-bottom: 2rem; border-bottom: 1px solid #e5e5e5; padding-bottom: 1rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid #e5e5e5; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+  th { background: #f8fafc; }
+  .pass { color: #15803d; font-weight: 600; }
+  .fail { color: #b91c1c; font-weight: 600; }
+  .chip { display: inline-block; background: #f1f5f9; border-radius: 999px;
+          padding: 0.15rem 0.6rem; margin: 0.1rem; font-size: 0.8rem; }
+  .muted { color: #64748b; }
+  a { color: #2563eb; }
+  canvas { max-height: 320px; margin-bottom: 2.5rem; }
+  h2 { margin-top: 2.5rem; }
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+<nav>
+  <a href="/">Runs</a>
+  <a href="/trends">Trends</a>
+  <span class="muted">litmus dashboard</span>
+</nav>
+{% block body %}{% endblock %}
+</body>
+</html>
