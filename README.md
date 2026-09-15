@@ -61,6 +61,33 @@ Without `--scorer`, a reference-free LLM quality judge scores each response.
 Reports include error rate, latency p50/p95, per-persona breakdowns, and the
 standard scorer table.
 
+## CI: evals on every PR
+
+`.github/workflows/eval.yml` runs the full pipeline on every pull request and
+push to main:
+
+1. **test** job: pytest + ruff.
+2. **eval** job: installs with no API keys, runs the astrodigest seed eval
+   against the stub system (hermetic — deterministic scorers only, so it's
+   free and stable), then `litmus diff` compares the candidate report against
+   the committed `reports/baseline.json`. The diff lands in the job summary;
+   any regression fails the check, and the candidate report is uploaded as an
+   artifact for debugging.
+
+Exit codes for `litmus diff`: `0` = no regression, `1` = regression detected,
+`2` = bad inputs (e.g. missing report file).
+
+**Refreshing the baseline** (when a quality change is intentional, on main):
+
+```bash
+PYTHONPATH=src python -m litmus.cli run \
+  --dataset datasets/astrodigest_golden_seed_v1.jsonl \
+  --system examples.score_and_summarize:score_stub \
+  --scorer examples.score_and_summarize:scorers_basic \
+  --name baseline --report-json reports/baseline.json
+git add reports/baseline.json && git commit -m "Refresh eval baseline"
+```
+
 ## Tracing is optional and additive
 
 The OTel SDK is an **optional** extra (`pip install ".[tracing]"`). Importing
@@ -111,7 +138,8 @@ synth` CLIs only initialize tracing with `--trace`.
 - **M1** ✅ Core engine, CLI, scorers, calibration, tracing, first real eval run.
 - **Synthetic traffic** ✅ Persona-based generation + load runner (`litmus synth`),
   reference-free quality judge, `litmus.synthetic` span labeling, CI gating.
-- **M2** — Judge calibration workflow + CI gating (GitHub Actions: eval on every PR, block on regression).
+- **M2** ✅ CI gating — GitHub Actions runs evals on every PR, `litmus diff`
+  fails the check on regression vs a committed baseline.
 - **M3** — OTel collector pipeline + score-over-time dashboard (FastAPI, self-hosted).
 - **M4** — MCP-based demo agent as a second consumer.
 - **M5** — Docker Compose deployment to a Hetzner VPS alongside the dogfood pipeline.

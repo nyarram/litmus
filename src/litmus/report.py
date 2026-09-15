@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from litmus.runners import CaseResult, EvalRunResult
+from litmus.scorers.base import Score
 
 
 @dataclass
@@ -27,6 +28,17 @@ class ScorerSummary:
             "n_passed": self.n_passed,
             "n_failed": self.n_failed,
         }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> ScorerSummary:
+        return cls(
+            name=d["name"],
+            n=d["n"],
+            mean=d["mean"],
+            pass_rate=d.get("pass_rate"),
+            n_passed=d["n_passed"],
+            n_failed=d["n_failed"],
+        )
 
 
 @dataclass
@@ -50,6 +62,18 @@ class EvalReport:
             "summaries": {k: v.to_dict() for k, v in self.summaries.items()},
             "results": [r.to_dict() for r in self.results],
         }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> EvalReport:
+        return cls(
+            run_name=d["run_name"],
+            dataset_name=d["dataset_name"],
+            dataset_version=d["dataset_version"],
+            created_at=d["created_at"],
+            summaries={k: ScorerSummary.from_dict(v) for k, v in d["summaries"].items()},
+            results=[_case_result_from_dict(r) for r in d["results"]],
+            n_errors=d.get("n_errors", 0),
+        )
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), indent=2, default=str)
@@ -78,6 +102,18 @@ class EvalReport:
             failing_list = ", ".join(f"`{c}`" for c in failing)
             lines += ["", f"**{len(failing)} failing/errored cases:** {failing_list}"]
         return "\n".join(lines) + "\n"
+
+
+def _case_result_from_dict(d: dict) -> CaseResult:
+    return CaseResult(
+        case_id=d["case_id"],
+        output=d.get("output"),
+        scores={k: Score.from_dict(v) for k, v in d.get("scores", {}).items()},
+        latency_s=d.get("latency_s", 0.0),
+        attempts=d.get("attempts", 1),
+        error=d.get("error"),
+        trace_id=d.get("trace_id"),
+    )
 
 
 def build_report(run: EvalRunResult, run_name: str) -> EvalReport:

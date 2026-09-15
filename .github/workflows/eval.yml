@@ -1,0 +1,60 @@
+name: eval
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install
+        run: pip install -e ".[dev,tracing]"
+      - name: pytest
+        run: PYTHONPATH=src pytest -q
+      - name: ruff
+        run: ruff check src tests && ruff format --check src tests
+
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install
+        # No API keys: the CI eval uses the stub system + deterministic scorers,
+        # so it is hermetic and free on every PR.
+        run: pip install -e ".[tracing]"
+      - name: run eval
+        run: |
+          PYTHONPATH=src python -m litmus.cli run \
+            --dataset datasets/astrodigest_golden_seed_v1.jsonl \
+            --system examples.score_and_summarize:score_stub \
+            --scorer examples.score_and_summarize:scorers_basic \
+            --name ci-${{ github.sha }} \
+            --report-json /tmp/candidate.json
+      - name: diff vs baseline
+        run: |
+          set +e
+          PYTHONPATH=src python -m litmus.cli diff \
+            --baseline reports/baseline.json \
+            --candidate /tmp/candidate.json | tee /tmp/diff.md
+          code=${PIPESTATUS[0]}
+          {
+            echo "## litmus eval diff"
+            echo ""
+            cat /tmp/diff.md
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - name: upload candidate report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-report
+          path: /tmp/candidate.json

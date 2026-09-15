@@ -27,6 +27,16 @@ class Score:
             "details": self.details,
         }
 
+    @classmethod
+    def from_dict(cls, d: dict) -> Score:
+        return cls(
+            name=d["name"],
+            value=d["value"],
+            passed=d.get("passed"),
+            explanation=d.get("explanation"),
+            details=d.get("details") or {},
+        )
+
 
 class Scorer(Protocol):
     """Anything that grades a system's output for a case. Implementations must be async."""

@@ -110,6 +110,35 @@ def run(
 
 
 @app.command()
+def diff(
+    baseline: Path = typer.Option(..., "--baseline", help="Baseline report JSON file"),
+    candidate: Path = typer.Option(..., "--candidate", help="Candidate report JSON file"),
+    threshold: float = typer.Option(
+        0.0,
+        "--threshold",
+        help="Fail if any scorer mean drops more than this vs the baseline",
+    ),
+):
+    """Diff two eval reports; exit 1 on regression, 2 on bad inputs."""
+    import json
+
+    from litmus.report import EvalReport, compare_reports
+
+    for label, path in (("baseline", baseline), ("candidate", candidate)):
+        if not path.exists():
+            typer.echo(f"error: {label} report not found: {path}", err=True)
+            raise typer.Exit(code=2)
+    base = EvalReport.from_dict(json.loads(baseline.read_text()))
+    cand = EvalReport.from_dict(json.loads(candidate.read_text()))
+    report_diff = compare_reports(base, cand)
+    typer.echo(report_diff.to_markdown())
+    if report_diff.has_regression(threshold):
+        typer.echo("REGRESSION DETECTED vs baseline", err=True)
+        raise typer.Exit(code=1)
+    typer.echo("No regression vs baseline.")
+
+
+@app.command()
 def version():
     """Print the litmus version."""
     from litmus import __version__

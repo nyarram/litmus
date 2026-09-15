@@ -1,0 +1,400 @@
+{
+  "run_name": "baseline",
+  "dataset_name": "astrodigest-scoring",
+  "dataset_version": "1.0",
+  "created_at": "2026-09-15T19:37:05.992474+00:00",
+  "n_cases": 12,
+  "n_errors": 0,
+  "summaries": {
+    "valid_shape": {
+      "name": "valid_shape",
+      "n": 12,
+      "mean": 1.0,
+      "pass_rate": 1.0,
+      "n_passed": 12,
+      "n_failed": 0
+    },
+    "newsworthy_match": {
+      "name": "newsworthy_match",
+      "n": 12,
+      "mean": 0.75,
+      "pass_rate": 0.75,
+      "n_passed": 9,
+      "n_failed": 3
+    }
+  },
+  "results": [
+    {
+      "case_id": "m87-shadow",
+      "output": {
+        "newsworthy": true,
+        "score": 0.85,
+        "reason": "Mentions recognized space program keywords."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {
+            "expected": "true",
+            "actual": "true"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "red-dwarf-exoplanet",
+      "output": {
+        "newsworthy": true,
+        "score": 0.85,
+        "reason": "Mentions recognized space program keywords."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {
+            "expected": "true",
+            "actual": "true"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "mercury-retrograde",
+      "output": {
+        "newsworthy": false,
+        "score": 0.15,
+        "reason": "No space-news indicators found."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {
+            "expected": "false",
+            "actual": "false"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "artemis-delay",
+      "output": {
+        "newsworthy": true,
+        "score": 0.85,
+        "reason": "Mentions recognized space program keywords."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {
+            "expected": "true",
+            "actual": "true"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "galaxy-donut",
+      "output": {
+        "newsworthy": false,
+        "score": 0.15,
+        "reason": "No space-news indicators found."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {
+            "expected": "false",
+            "actual": "false"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "webb-water-vapor",
+      "output": {
+        "newsworthy": true,
+        "score": 0.85,
+        "reason": "Mentions recognized space program keywords."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {
+            "expected": "true",
+            "actual": "true"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "cheese-meteors",
+      "output": {
+        "newsworthy": false,
+        "score": 0.15,
+        "reason": "No space-news indicators found."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {
+            "expected": "false",
+            "actual": "false"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "starship-test",
+      "output": {
+        "newsworthy": true,
+        "score": 0.85,
+        "reason": "Mentions recognized space program keywords."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {
+            "expected": "true",
+            "actual": "true"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "horoscope-funding",
+      "output": {
+        "newsworthy": true,
+        "score": 0.85,
+        "reason": "Mentions recognized space program keywords."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 0.0,
+          "passed": false,
+          "explanation": null,
+          "details": {
+            "expected": "false",
+            "actual": "true"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "frb-repeater",
+      "output": {
+        "newsworthy": true,
+        "score": 0.85,
+        "reason": "Mentions recognized space program keywords."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {
+            "expected": "true",
+            "actual": "true"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "iceland-eclipse",
+      "output": {
+        "newsworthy": false,
+        "score": 0.15,
+        "reason": "No space-news indicators found."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 0.0,
+          "passed": false,
+          "explanation": null,
+          "details": {
+            "expected": "true",
+            "actual": "false"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    },
+    {
+      "case_id": "nasa-sneakers",
+      "output": {
+        "newsworthy": true,
+        "score": 0.85,
+        "reason": "Mentions recognized space program keywords."
+      },
+      "scores": {
+        "valid_shape": {
+          "name": "valid_shape",
+          "value": 1.0,
+          "passed": true,
+          "explanation": null,
+          "details": {}
+        },
+        "newsworthy_match": {
+          "name": "newsworthy_match",
+          "value": 0.0,
+          "passed": false,
+          "explanation": null,
+          "details": {
+            "expected": "false",
+            "actual": "true"
+          }
+        }
+      },
+      "latency_s": 0.0,
+      "attempts": 1,
+      "error": null,
+      "trace_id": null
+    }
+  ]
+}
