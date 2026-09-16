@@ -120,7 +120,41 @@ LITMUS_OTLP_ENDPOINT=http://localhost:4318 litmus run ... --report-json reports/
 ```
 
 `--otlp-endpoint` (or the env var) overrides `--trace`. The same compose file
-is what a server deploy reuses — see the roadmap.
+is what the server deploy reuses — see "Deploy" below.
+
+## Deploy: nightly evals on a VPS
+
+Litmus runs on a Hetzner VPS next to the dogfood pipeline, as its own
+Compose project:
+
+- **Dashboard** — `litmus dashboard` on port 8000, served publicly at
+  https://litmus.188-34-162-117.sslip.io/ via the existing Caddy reverse proxy
+- **OTel collector** — receives spans from eval runs, forwards to Jaeger
+- **Jaeger** — all-in-one with a memory cap, internal-only (no public UI)
+
+Server layout (`/home/deploy/litmus/`):
+
+- `docker-compose.yml` — copied from `deploy/docker-compose.server.yml` in this repo
+- `repo/` — git clone of this repo (the dashboard image builds from `deploy/Dockerfile`)
+- `reports/` — report JSONs the dashboard reads; seeded with `reports/baseline.json`
+
+Two cron jobs run the keyless stub evals nightly (3:00 and 3:30 AM) and drop
+timestamped reports into `reports/`:
+
+```bash
+docker compose run --rm dashboard litmus run \
+  --dataset datasets/astrodigest_golden_seed_v1.jsonl \
+  --system examples.score_and_summarize:score_stub \
+  --scorer examples.score_and_summarize:scorers_basic \
+  --otlp-endpoint http://otel-collector:4318 \
+  --report-json /reports/nightly-astrodigest-$(date +%Y%m%d).json
+```
+
+Redeploy after pushing to main:
+
+```bash
+ssh <box> 'cd /home/deploy/litmus && git -C repo pull && docker compose up -d --build'
+```
 
 ## Second consumer: MCP demo agent
 
@@ -208,7 +242,9 @@ synth` CLIs only initialize tracing with `--trace`.
 - **M4** ✅ MCP demo agent — a tiny ReAct agent on the official MCP SDK
   (`examples/mcp_agent/`) evaluated by the same harness: `tools_used` +
   `exact_match` scorers, stub provider for keyless runs.
-- **M5** — Docker Compose deployment to a Hetzner VPS alongside the dogfood pipeline.
+- **M5** ✅ Deployed to a Hetzner VPS next to the dogfood pipeline — dashboard
+  + OTel collector + Jaeger via Compose, Caddy-routed public dashboard, and
+  nightly cron evals. See "Deploy" above.
 
 ## License
 
