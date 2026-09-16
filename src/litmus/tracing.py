@@ -118,6 +118,11 @@ def init_tracing(
             raise RuntimeError(
                 "the 'otlp' exporter needs the opentelemetry-exporter-otlp package"
             ) from e
+        # The OTLP HTTP exporter posts to the endpoint verbatim, so a bare
+        # base URL (e.g. http://collector:4318, as documented for
+        # --otlp-endpoint) would 404. Normalize to the traces path.
+        if endpoint and not endpoint.rstrip("/").endswith("/v1/traces"):
+            endpoint = endpoint.rstrip("/") + "/v1/traces"
         otlp = OTLPSpanExporter(endpoint=endpoint) if endpoint else OTLPSpanExporter()
         processor = BatchSpanProcessor(otlp)
     elif exporter == "memory":

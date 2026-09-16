@@ -110,7 +110,13 @@ async def run_agent_with_server(task: str, provider: Any, max_steps: int = 6) ->
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 
-    params = StdioServerParameters(command=sys.executable, args=["-m", "examples.mcp_agent.server"])
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "examples.mcp_agent.server"],
+        # The SDK only inherits a small allowlist of env vars by default
+        # (no PYTHONPATH), so pass the full environment through.
+        env=dict(os.environ),
+    )
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
