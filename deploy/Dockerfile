@@ -6,6 +6,10 @@ WORKDIR /app
 COPY . /app
 RUN pip install --no-cache-dir "/app[dashboard,tracing,agent]"
 
+# The repo's examples/ (stub systems, MCP agent) are imported by module path
+# (e.g. examples.score_and_summarize:score_stub); keep them importable.
+ENV PYTHONPATH=/app
+
 EXPOSE 8000
 
 # Overridden per use: the server compose runs the dashboard; the cron
