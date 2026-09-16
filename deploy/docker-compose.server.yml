@@ -1,0 +1,68 @@
+# Litmus on the Hetzner box (deployed as /home/deploy/litmus/docker-compose.yml).
+#
+# Layout on the server:
+#   /home/deploy/litmus/
+#     docker-compose.yml            <- this file
+#     otel-collector-config.yaml    <- copied from deploy/otel-collector-config.yaml
+#     repo/                         <- git clone of nyarram/litmus (build context)
+#     reports/                      <- dashboard reads report JSONs from here (cron writes here)
+#
+# The dashboard joins astrodigest's network so Caddy can reverse_proxy to it.
+# Jaeger stays internal-only (no published ports).
+
+name: litmus
+
+services:
+  dashboard:
+    build:
+      context: ./repo
+      dockerfile: deploy/Dockerfile
+    command:
+      - litmus
+      - dashboard
+      - --reports-dir
+      - /reports
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    volumes:
+      - ./reports:/reports
+    expose:
+      - "8000"
+    restart: unless-stopped
+    networks:
+      - litmus
+      - astrodigest_default
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.129.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    expose:
+      - "4317"
+      - "4318"
+    restart: unless-stopped
+    networks:
+      - litmus
+    depends_on:
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.68
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - MEMORY_MAX_TRACES=20000
+    mem_limit: 512m
+    expose:
+      - "16686"
+      - "4317"
+    restart: unless-stopped
+    networks:
+      - litmus
+
+networks:
+  litmus:
+  astrodigest_default:
+    external: true
